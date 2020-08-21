@@ -102,7 +102,7 @@ function initList(data) {
   		videoId = element.id;
 
   		if(element.collected === true ) {
-  			html += `<li class='video-item' ><div class='img-box'><img src='${img}'><span class='duration'>${duration}</span></div><div class="video-detail"><span class='video-title title-xl'>${title}</span><p class='video-des text-hidden'>${description}</p><button class='btn-like collected' id='${videoId}'><ion-icon name='heart'></ion-icon></button></div></li>`;
+  			html += `<li class='video-item' ><div class='img-box'><img src='${img}'><span class='duration'>${duration}</span></div><div class="video-detail"><span class='video-title title-xl'>${title}</span><p class='video-des text-hidden'>${description}</p><button class='btn-like ion-ios-heart collected' id='${videoId}'></button></div></li>`;
   		} else {
   			html += '';
   		}
@@ -187,11 +187,13 @@ function pagination(data, nowPage) {
 function pageBtn(objPage) {
 	var str = '';
 	var total = objPage.pageTotal;
-	var videoNum = objPage.pageNum;
+	var videoNum = objPage.pagerNum;
 	var min = Number(objPage.currentPage) - 2;
 	var max = Number(objPage.currentPage) + 2;
 
 	str += `<li class='first-page'><a class="page-link" href="#1">1</a></li>`;
+
+	console.log(videoNum, objPage.perpage);
 
 	if(videoNum < objPage.perpage) {
 		str = '';
@@ -263,6 +265,8 @@ function collected(element) {
 	}
 	
 	target.classList.toggle('collected');
+
+	console.log(event.target);
 
 	storeCache(cacheData);
 }
