@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">  
+	<title>首頁</title>
+	<!-- <script src="main.js"></script> -->
+	<script src="js/moment.js"></script>
+	<script src="js/moment-duration-format.js"></script>
+	<script src="https://unpkg.com/ionicons@5.1.2/dist/ionicons/ionicons.js"></script>
+	<!-- <script src="//vjs.zencdn.net/7.3.0/video.min.js"></script>
+	<link href="//vjs.zencdn.net/7.3.0/video-js.min.css" rel="stylesheet"> -->
+	<link href="http://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css" rel="stylesheet" type="text/css">
+	<link type="text/css" rel="stylesheet" href="css/style.css">
+	
+
+</head>
+<body>
+	<div id ="content">
+		<ul id="sideNav">
+			<li class="nav-item active"><a href="index.html#1"><ion-icon name="home-outline"></ion-icon><span>首頁</span></a></li>
+			<li class="nav-item"><a href="playlist.html#1"><ion-icon name="bookmarks-outline"></ion-icon><span>收藏</span></a></li>
+			<li class="nav-item"><a href="javascript:void(0);"><ion-icon name="moon-outline"></ion-icon><span>深色模式</span><input type="checkbox" id="switch" /><label for="switch"></label></a></li>
+		</ul>
+		<div id="video-wrap">
+			<!-- <h1>熱門影片</h1> -->
+			<ul id="video-list">
+			</ul>
+			<ul id="pagination">
+
+			</ul>
+		</div>
+    </div>
+</body>
+</html>
+
+<script>
+var xhr = new XMLHttpRequest();
+var xhrp2 = new XMLHttpRequest();
+var content = document.getElementById('video-list');
+var cacheData;
+var pager = document.getElementById('pagination');
+var hash = 1;
+var newHash;
+
+var modeSwitcher = document.getElementById('switch');
+
+modeSwitcher.addEventListener('change', ()=>{
+	var body = document.querySelector('body');
+
+	body.classList.toggle('dark-mode');
+
+	if(body.classList.contains('dark-mode')) {
+		localStorage.setItem('mode', 'dark-mode');
+	} else {
+		localStorage.setItem('mode', 'default');
+	}
+});
+
+if (window.location.hash) {
+	var hashNum = window.location.hash;
+	var splitHash = hashNum.split('#');
+	var pageNum = splitHash[1];
+	var newHash = window.location.hash;
+	newHash = pageNum;
+}
+
+if(localStorage.getItem('videos')) {
+	cacheData = JSON.parse(localStorage.getItem('videos'));
+
+	pagination(cacheData, newHash, 1);
+
+	checkMode();
+
+	storeCache(cacheData);
+
+} else {
+	xhr.open('GET', 'https://www.googleapis.com/youtube/v3/videos?key=AIzaSyCQslszXBgfgyNLABNsS2gRaHwizOQzIpQ&part=snippet&part=contentDetails&chart=mostpopular&regionCode=TW&maxResults=50', true);
+	xhr.send(null);
+
+	var resArrP1 = [];
+
+	xhr.onreadystatechange = function() {
+	    if (xhr.readyState == XMLHttpRequest.DONE) {
+
+	    	var res, nextPageToken;
+
+    		res = JSON.parse(xhr.responseText);
+
+    		nextPageToken = res.nextPageToken;
+
+    		xhrp2.open('GET', `https://www.googleapis.com/youtube/v3/videos?key=AIzaSyCQslszXBgfgyNLABNsS2gRaHwizOQzIpQ&part=snippet&part=contentDetails&chart=mostpopular&regionCode=TW&maxResults=50&pageToken=${nextPageToken}`, true);
+			xhrp2.send(null);	
+
+			resArrP1 = res.items;
+
+	    }
+	}
+
+	var resArrP2 = [];
+
+	xhrp2.onreadystatechange = function() {
+		if (xhrp2.readyState == XMLHttpRequest.DONE) {
+			var res2 = JSON.parse(xhrp2.responseText);
+
+			resArrP2 = resArrP1.concat(res2.items);
+
+	        pagination(resArrP2, 1, 0);
+
+	        storeCache(resArrP2);
+
+	        localStorage.setItem('mode', 'default');
+
+	        location.reload();
+
+		}
+	}
+
+}
+
+function checkMode(){
+	var mode = localStorage.getItem('mode');
+	var body = document.querySelector('body');
+
+	if(mode === 'dark-mode') {
+		body.classList.add('dark-mode');
+	} else {
+		body.classList.remove('dark-mode');
+	}
+}
+
+function initList(data) {
+	var html = '';
+
+	data.forEach(function(element){
+  		var img, title, duration, durationIOS, description, collected, videoId;
+
+	 	title = element.snippet.title;
+  		// title = element.snippet.channelTitle;
+  		img = element.snippet.thumbnails.medium.url;
+  		durationIOS = element.contentDetails.duration;
+  		duration = moment.duration(durationIOS).format('hh:mm:ss')
+  		description = element.snippet.description;
+  		videoId = element.id;
+
+  		if(element.collected === false ) {
+  			html += `<li class='video-item' ><div class='img-box'><img src='${img}'><span class='duration'>${duration}</span></div><div class="video-detail"><span class='video-title title-s text-hidden'>${title}</span><button class='btn-like ion-ios-heart-outline' id='${videoId}'></button></div></li>`;
+  		} else {
+  			html += `<li class='video-item' ><div class='img-box'><img src='${img}'><span class='duration'>${duration}</span></div><div class="video-detail"><span class='video-title title-s text-hidden'>${title}</span><button class='btn-like collected ion-ios-heart' id='${videoId}'></button></li>`;
+  		}
+  	
+    });    
+
+	content.innerHTML = html;
+
+	document.querySelectorAll('.btn-like').forEach(function(element){
+		element.addEventListener('click', collected);
+		element.addEventListener('mouseenter', hoverIn);
+		element.addEventListener('mouseleave', hoverOut);
+	});
+
+	document.querySelectorAll('.img-box').forEach(function(element){
+		element.addEventListener('click', redirect);
+
+	});
+}
+
+function pagination(data, nowPage, isCache) {
+	var dataTotal, perpage, pageTotal, currentPage, minData, maxData, perpageData, objPage;
+
+	dataTotal = data.length;
+	perpage = 12;
+	pageTotal = Math.ceil(dataTotal / perpage);
+	currentPage = nowPage;
+	minData = (currentPage * perpage) - perpage + 1 ;
+	maxData = (currentPage * perpage);
+	perpageData = [];
+	
+	if (currentPage > pageTotal) {
+	    currentPage = pageTotal;
+  	}
+
+  	data.forEach(function(item, index){
+  		var num = index + 1;
+
+  		if ( num >= minData && num <= maxData) {
+	  		perpageData.push(item);
+		}
+
+		if(isCache === 0 ) {
+  			item.collected = false;
+  		} else {
+  			
+  		}
+  
+  	}); 
+
+  	objPage = {
+  		pageTotal,
+  		currentPage,
+  		hasPage: currentPage > 1,
+  		hasNext: currentPage < pageTotal,
+  	}
+
+  	if(localStorage.getItem('videos')) {
+  		initList(perpageData);
+  	} else {
+  		initList(perpageData);
+  	}
+  	
+  	pageBtn(objPage);
+
+	// console.log(`共${dataTotal}資料，1頁${perpage}比，共${pageTotal}頁`);
+  		
+}
+
+function pageBtn(objPage) {
+	var str = '';
+	var total = objPage.pageTotal;
+	var min = Number(objPage.currentPage) - 2;
+	var max = Number(objPage.currentPage) + 2;
+
+	str += `<li class='first-page'><a class="page-link" href="#1">1</a></li>`;
+
+	if(objPage.hasPage) {
+	    str += `<li class="page-item pre-page"><a class="page-link ion-ios-arrow-left" href="#${Number(objPage.currentPage) - 1}"></a></li>`;
+	} else {
+		str += `<li class="page-item pre-page disabled"><span class="page-link ion-ios-arrow-left"></span></li>`;
+	}
+
+	for(var i = 1; i <= total; i++) {
+		if(Number(objPage.currentPage) === i) {
+      		str +=`<li class="page-item active"><a class="page-link active" href="#${i}">${i}</a></li>`;
+	    } else if(i < min) {
+      		continue;
+	    } else if(i > max) {
+	    	break;
+	    } 
+	    else {
+	    	str +=`<li class="page-item"><a class="page-link" href="#${i}">${i}</a></li>`;
+	    }
+	};
+
+  	if(objPage.hasNext) {
+		str += `<li class="page-item next-page"><a class="page-link ion-ios-arrow-right" href="#${Number(objPage.currentPage) + 1}"></a></li>`;
+	} else {
+		str += `<li class="page-item next-page disabled"><span class="page-link ion-ios-arrow-right"></span></li>`;
+	}
+
+	str += `<li class='last-page'><a class="page-link" href="#${Number(total)}">${Number(total)}</a></li>`;
+
+	pager.innerHTML = str;
+
+}
+
+function switchPage(e){
+	var href = e.target.href;
+	var split = href.split('#');
+	var pageNum = split[1];
+	pagination(cacheData, pageNum, 1);
+}
+
+pager.addEventListener('click',switchPage);
+
+
+function collected(element) {
+	var itemId, videoId, target, videoIndex;
+
+	itemId = event.target.id;
+	target = document.getElementById(itemId);
+
+	// console.log(target, itemId);
+
+	videoIndex = cacheData.find(function(item, index) { 
+		if (item.id == itemId) {
+			videoId = index;
+			return;
+		}
+	}, videoId);
+
+	if(target.classList.contains('collected')) {
+		cacheData[videoId].collected = false;
+		target.classList.remove('ion-ios-heart');
+		target.classList.add('ion-ios-heart-outline');
+	} else {
+		cacheData[videoId].collected = true;
+		target.classList.remove('ion-ios-heart-outline');
+		target.classList.add('ion-ios-heart');
+	}
+	
+	target.classList.toggle('collected');
+
+	storeCache(cacheData);
+}
+
+function hoverIn(e) {
+	var itemId, target;
+
+	itemId = event.target.id;
+	target = document.getElementById(itemId);
+
+	if(target.classList.contains('collected')) {
+		target.classList.remove('ion-ios-heart');
+		target.classList.add('ion-heart-broken');
+	} else {
+		target.classList.remove('ion-ios-heart-outline');
+		target.classList.add('ion-ios-heart');
+	}
+}
+
+function hoverOut() {
+	var itemId, target;
+
+	itemId = event.target.id;
+	target = document.getElementById(itemId);
+
+	if(target.classList.contains('collected')) {	
+		target.classList.remove('ion-heart-broken');
+		target.classList.add('ion-ios-heart');
+	} else {
+		target.classList.remove('ion-ios-heart');
+		target.classList.add('ion-ios-heart-outline');
+	}
+}
+
+function storeCache(data) {
+	var data = JSON.stringify(data);
+	localStorage.setItem('videos', data);
+}
+
+function redirect() {
+	var itemId = event.target.parentNode.parentNode.lastChild.lastChild.id;
+	localStorage.setItem('currentVideo', itemId);
+	window.location.href = 'video.html';
+}
+
+</script>

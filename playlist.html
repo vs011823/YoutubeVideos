@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Playlist</title>
+	<!-- <script src="main.js"></script> -->
+	<script src="js/moment.js"></script>
+	<script src="js/moment-duration-format.js"></script>
+	<script src="https://unpkg.com/ionicons@5.1.2/dist/ionicons/ionicons.js"></script>
+	<link href="http://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css" rel="stylesheet" type="text/css">
+	<link type="text/css" rel="stylesheet" href="css/style.css">
+
+</head>
+<body>
+	<div id="content">
+		<ul id="sideNav">
+			<li class="nav-item"><a href="index.html#1"><ion-icon name="home-outline"></ion-icon><span>首頁</span></a></li>
+			<li class="nav-item active"><a href="playlist.html#1"><ion-icon name="bookmarks-outline"></ion-icon><span>收藏</span></a></li>
+			<li class="nav-item"><a href="javascript:void(0);"><ion-icon name="moon-outline"></ion-icon><span>深色模式</span><input type="checkbox" id="switch" /><label for="switch"></label></a></li>
+		</ul>
+		<div id="video-wrap">
+			<ul id="play-list">
+				
+			</ul>
+			<ul id="pagination">
+
+			</ul>
+		</div>
+	</div>
+</body>
+</html>
+
+<script>
+	
+</script>
+
+<script>
+var xhr = new XMLHttpRequest();
+var content = document.getElementById('play-list');
+var cacheData;
+var pager = document.getElementById('pagination');
+var hash = 1;
+var newHash;
+
+var modeSwitcher = document.getElementById('switch');
+
+modeSwitcher.addEventListener('change', ()=>{
+	var body = document.querySelector('body');
+
+	body.classList.toggle('dark-mode');
+
+	if(body.classList.contains('dark-mode')) {
+		localStorage.setItem('mode', 'dark-mode');
+	} else {
+		localStorage.setItem('mode', 'default');
+	}
+});
+
+if (window.location.hash) {
+	var hashNum = window.location.hash;
+	var splitHash = hashNum.split('#');
+	var pageNum = splitHash[1];
+	var newHash = window.location.hash;
+	newHash = pageNum;
+}
+
+if(localStorage.getItem('videos')) {
+	cacheData = JSON.parse(localStorage.getItem('videos'));
+	var nowPage = localStorage.getItem('currentPage');
+
+	pagination(cacheData, newHash);
+
+	checkMode();
+
+	storeCache(cacheData);
+
+}
+
+function checkMode(){
+	var mode = localStorage.getItem('mode');
+	var body = document.querySelector('body');
+
+	if(mode === 'dark-mode') {
+		body.classList.add('dark-mode');
+	} else {
+		body.classList.remove('dark-mode');
+	}
+}
+
+function initList(data) {
+	var html = '';
+	data.forEach(function(element){
+  		var img, title, duration, durationIOS, description, collected, videoId;
+
+	 	title = element.snippet.title;
+  		// title = element.snippet.channelTitle;
+  		img = element.snippet.thumbnails.medium.url;
+  		durationIOS = element.contentDetails.duration;
+  		duration = moment.duration(durationIOS).format('hh:mm:ss')
+  		description = element.snippet.description;
+  		videoId = element.id;
+
+  		if(element.collected === true ) {
+  			html += `<li class='video-item' ><div class='img-box'><img src='${img}'><span class='duration'>${duration}</span></div><div class="video-detail"><span class='video-title title-xl'>${title}</span><p class='video-des text-hidden'>${description}</p><button class='btn-like collected' id='${videoId}'><ion-icon name='heart'></ion-icon></button></div></li>`;
+  		} else {
+  			html += '';
+  		}
+ 		
+    });    
+
+    content.innerHTML = html;
+
+    document.querySelectorAll('.btn-like').forEach(function(element){
+		element.addEventListener('click', collected);
+		element.addEventListener('mouseenter', hoverIn);
+		element.addEventListener('mouseleave', hoverOut);
+	});
+
+	document.querySelectorAll('.img-box').forEach(function(element){
+		element.addEventListener('click', redirect);
+	});
+
+	var hasContent  = content.innerHTML.replace(/^\s*/, "").replace(/\s*$/, "");
+
+	if( hasContent === '') {
+		html = '尚無收藏資料'
+		content.insertAdjacentHTML('beforeend', html);
+	} 
+
+}
+
+function pagination(data, nowPage) {
+	var perpage, pageTotal, currentPage, minData, maxData, collectedData, objPage, pagerNum;
+
+	perpage = 12;
+	currentPage = nowPage;
+	minData = (currentPage * perpage) - perpage + 1 ;
+	maxData = (currentPage * perpage);
+	collectedData = [];
+	reIndexData = [];
+	pagerNum = 0;
+
+	data.forEach(element=>{
+		if(element.collected === true ) {
+			pagerNum += 1;
+			collectedData.push(element);
+		}
+	});
+
+	pageTotal = Math.ceil(pagerNum / perpage);
+	
+	if (currentPage > pageTotal) {
+	    currentPage = pageTotal;
+  	}
+
+  	collectedData.forEach(function(item, index){
+  		var num = index + 1;
+
+  		if ( num >= minData && num <= maxData) {
+		   reIndexData.push(item);
+		}
+  
+  	}); 
+
+  	objPage = {
+  		perpage,
+  		pagerNum,
+  		pageTotal,
+  		currentPage,
+  		hasPage: currentPage > 1,
+  		hasNext: currentPage < pageTotal,
+  	}
+
+  	if(localStorage.getItem('videos')) {
+  		initList(reIndexData);
+  	} else {
+  		initList(reIndexData);	
+  	}
+  	
+  	pageBtn(objPage);
+
+	// console.log(`共${dataTotal}資料，1頁${perpage}比，共${pageTotal}頁`);
+  		
+}
+
+function pageBtn(objPage) {
+	var str = '';
+	var total = objPage.pageTotal;
+	var videoNum = objPage.pageNum;
+	var min = Number(objPage.currentPage) - 2;
+	var max = Number(objPage.currentPage) + 2;
+
+	str += `<li class='first-page'><a class="page-link" href="#1">1</a></li>`;
+
+	if(videoNum < objPage.perpage) {
+		str = '';
+	}else {
+
+		if(objPage.hasPage) {
+		    str += `<li class="page-item pre-page"><a class="page-link ion-ios-arrow-left" href="#${Number(objPage.currentPage) - 1}"></a></li>`;
+		} else {
+			str += `<li class="page-item pre-page disabled"><span class="page-link ion-ios-arrow-left"></span></li>`;
+		}
+
+		for(var i = 1; i <= total; i++) {
+			if(Number(objPage.currentPage) === i) {
+	      		str +=`<li class="page-item active"><a class="page-link active" href="#${i}">${i}</a></li>`;
+		    } else if(i < min) {
+	      		continue;
+		    } else if(i > max) {
+		    	break;
+		    } 
+		    else {
+		    	str +=`<li class="page-item"><a class="page-link" href="#${i}">${i}</a></li>`;
+		    }
+		};
+
+	  	if(objPage.hasNext) {
+			str += `<li class="page-item next-page"><a class="page-link ion-ios-arrow-right" href="#${Number(objPage.currentPage) + 1}"></a></li>`;
+		} else {
+			str += `<li class="page-item next-page disabled"><span class="page-link ion-ios-arrow-right"></span></li>`;
+		}
+
+		str += `<li class='last-page'><a class="page-link" href="#${Number(total)}">${Number(total)}</a></li>`;
+	}
+
+	pager.innerHTML = str;
+
+}
+
+function switchPage(e){
+  var href = e.target.href;
+  var split = href.split('#');
+  var pageNum = split[1];
+  pagination(cacheData, pageNum);
+}
+
+pager.addEventListener('click',switchPage);
+
+
+function collected(element) {
+	var itemId, videoId, target, videoIndex;
+
+	itemId = event.target.id;
+	target = document.getElementById(itemId);
+
+	videoIndex = cacheData.find(function(item, index) { 
+		if (item.id == itemId) {
+			videoId = index;
+			return;
+		}
+	}, videoId);
+
+	if(target.classList.contains('collected')) {
+		cacheData[videoId].collected = false;
+		target.classList.remove('ion-ios-heart');
+		target.classList.add('ion-ios-heart-outline');
+	} else {
+		cacheData[videoId].collected = true;
+		target.classList.remove('ion-ios-heart-outline');
+		target.classList.add('ion-ios-heart');
+	}
+	
+	target.classList.toggle('collected');
+
+	storeCache(cacheData);
+}
+
+function hoverIn(e) {
+	var itemId, target;
+
+	itemId = event.target.id;
+	target = document.getElementById(itemId);
+
+	if(target.classList.contains('collected')) {
+		target.classList.remove('ion-ios-heart');
+		target.classList.add('ion-heart-broken');
+	} else {
+		target.classList.remove('ion-ios-heart-outline');
+		target.classList.add('ion-ios-heart');
+	}
+}
+
+function hoverOut() {
+	var itemId, target;
+
+	itemId = event.target.id;
+	target = document.getElementById(itemId);
+
+	if(target.classList.contains('collected')) {
+		target.classList.remove('ion-heart-broken');
+		target.classList.add('ion-ios-heart');
+	} else {
+		target.classList.remove('ion-ios-heart');
+		target.classList.add('ion-ios-heart-outline');
+	}
+}
+
+function storeCache(data) {
+	var data = JSON.stringify(data);
+	localStorage.setItem('videos', data);
+}
+
+function redirect() {
+	var itemId = event.target.parentNode.parentNode.lastChild.lastChild.id;
+	localStorage.setItem('currentVideo', itemId);
+	window.location.href = 'video.html';
+}
+
+</script>
